@@ -1,5 +1,6 @@
 const express = require('express');
 const	bodyParser = require('body-parser');
+const compression = require('compression');
 let shepherd = require('./routes/shepherd');
 let app = express();
 
@@ -22,9 +23,17 @@ app.get('/', (req, res) => {
 	res.send('Electrum Proxy Server');
 });
 
+app.use(compression({
+	level: 9,
+	threshold: 0,
+}));
 app.use('/api', shepherd);
 
-let config = {};
+let config = {
+	https: false,
+};
+let server;
+
 process.argv.forEach((val, index) => {
 	if (val.indexOf('ip=') > -1) {
 		config.ip = val.replace('ip=', '');
@@ -33,8 +42,18 @@ process.argv.forEach((val, index) => {
 	}
 });
 
-const server = require('http')
-                .createServer(app)
-                .listen(config.port, config.ip);
+if (config.https) {
+  const options = {
+    key: fs.readFileSync('certs/priv.pem'),
+    cert: fs.readFileSync('certs/cert.pem'),
+  };
+  server = require('https')
+            .createServer(options, app)
+            .listen(config.port || 8118, config.ip || 'localhost');
+} else {
+  server = require('http')
+            .createServer(app)
+            .listen(config.port || 8118, config.ip || 'localhost');
+}
 
-console.log(`Electrum Proxy Server is running at ${config.ip}:${config.port}`);
+console.log(`Electrum Proxy Server is running at ${config.ip || 'localhost'}:${config.port || 8118}`);
